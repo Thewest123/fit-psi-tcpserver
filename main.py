@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 
 import socket
-import string
 import threading
+import sys
+import getopt
+from typing import Tuple
 
 from robot import Robot
 
 
-def read_message(conn: socket) -> string:
+def read_message(conn: socket) -> str:
 
     buffer = b''
     while b'\a\b' not in buffer:
@@ -33,7 +35,7 @@ def handle_client(sock: socket, conn: socket, addr) -> None:
         if msg is None:
             break
 
-        print(f"Message to process: {msg}")
+        print(f" ∟ Recv: {msg}")
         if not robot.process_message(msg):
             break
 
@@ -41,11 +43,37 @@ def handle_client(sock: socket, conn: socket, addr) -> None:
     conn.close()
 
 
+def parse_args(argv) -> Tuple[str, int]:
+    host = ''
+    port = 0
+
+    # Parse command line arguments
+    try:
+        opts, args = getopt.getopt(
+            argv, "ha:p:", ["help", "address=", "port="])
+    except getopt.GetoptError:
+        print(
+            f"{__file__} [-a IP_ADDRESS] [--address IP_ADDRESS] [-p PORT] [--port PORT]")
+        sys.exit(2)
+
+    for opt, arg in opts:
+        if opt == '-h':
+            print(
+                f"{sys.argv[0]} [-a IP_ADDRESS] [--address IP_ADDRESS] [-p PORT] [--port PORT]")
+            sys.exit()
+        elif opt in ("-a", "--address"):
+            host = arg
+        elif opt in ("-p", "--port"):
+            port = int(arg)
+
+    return (host, port)
+
+
 def main():
 
     # hostname = socket.gethostname()
     # host = socket.gethostbyname(hostname)
-    port = 6969
+    host, port = parse_args(sys.argv[1:])
 
     try:
         # Create IPv4 socket stream

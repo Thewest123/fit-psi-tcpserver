@@ -1,6 +1,6 @@
 from enum import Enum
 import socket
-import string
+from config import *
 
 
 class State(Enum):
@@ -13,21 +13,29 @@ class State(Enum):
 class Robot:
 
     def __init__(self, conn: socket) -> None:
-        self.conn = conn
-        self.state = State.UNAUTH
+        self.conn: socket = conn
+        self.state: State = State.UNAUTH
 
-        self.name = None
-        self.key_id = None
-        self.hash = None
+        self.name: str = None
+        self.key_id: int = None
+        self.hash: int = None
 
-    def process_message(self, msg: string) -> bool:
+        self.prev_x: int = None
+        self.prev_y: int = None
+
+    def send_message(self, msg: str) -> None:
+        out: str = msg + SUFFIX
+        print(" ∟ Sent:", out)
+        self.conn.sendall(bytes(out, encoding="utf-8"))
+
+    def process_message(self, msg: str) -> bool:
 
         # Unauthorized (CLIENT_USERNAME )
         if (self.state == State.UNAUTH):
 
             self.name = msg
 
-            self.conn.sendall(b"107 KEY REQUEST\a\b")
+            self.send_message(SERVER_KEY_REQUEST)
 
             self.state_inc()
             return True
@@ -37,9 +45,14 @@ class Robot:
 
             self.key_id = int(msg)
 
-            hash = self.create_hash(0)
-            print("Hash: ", str(hash))
-            self.conn.sendall(bytes(str(hash) + "\a\b", encoding="utf-8"))
+            try:
+                hash = self.create_hash(0)
+            except Exception as e:
+                print(" ∟ (err)", str(e))
+                self.send_message(SERVER_KEY_OUT_OF_RANGE_ERROR)
+                return False
+
+            self.send_message(str(hash))
 
             self.state_inc()
             return True
@@ -47,42 +60,59 @@ class Robot:
         # Unauthorized (CLIENT_CONFIRMATION)
         if (self.state == State.UNAUTH_CONFIRM):
 
-            confirm_code = int(msg)
-            hash = self.create_hash(1)
-
-            if (hash != confirm_code):
-                send_string = "300 LOGIN FAILED\a\b"
-                self.conn.sendall(str.encode(send_string))
+            confirm_code: int = int(msg)
+            try:
+                hash = self.create_hash(1)
+            except Exception as e:
+                print(" ∟ (err)", str(e))
+                self.send_message(SERVER_LOGIN_FAILED)
                 return False
 
-            send_string = "200 OK\a\b"
-            self.conn.sendall(str.encode(send_string))
+            if (hash != confirm_code):
+                self.send_message(SERVER_LOGIN_FAILED)
+                return False
+
+            self.send_message(SERVER_OK)
 
             self.state_inc()
-            # return True
+            self.send_message(SERVER_MOVE)
+            return True
+            # No return because we want to continue to the AUTHENTICATED if statement
 
         if (self.state == State.AUTHENTICATED):
-            send_string = "102 MOVE\a\b"
-            self.conn.sendall(str.encode(send_string))
+            if (msg.startswith("OK")):
+                x: int = int(msg.split(" ")[1])
+                y: int = int(msg.split(" ")[2])
+                print(f" ∟ Position: ({x},{y})")
+
+                # Initial set of previous position
+                if not self.prev_x:
+                    prev_x = x
+
+                if not self.prev_y:
+                    prev_x = y
+
+                if (x == 0 and y == 0):
+                    self.send_message(SERVER_PICK_UP)
+                    return True
+
+                self.send_message(SERVER_MOVE)
+                return True
+
+            else:
+                self.send_message(SERVER_LOGOUT)
+                return False
 
     def create_hash(self, side=0) -> int:
-        key_pairs = [
-            (23019, 32037),
-            (32037,	29295),
-            (18789,	13603),
-            (16443,	29533),
-            (18189,	21952),
-        ]
-
         sum = 0
         for char in self.name:
             sum += ord(char)
 
         hash = (sum * 1000) % 65536
-        hash = (hash + key_pairs[self.key_id][side]) % 65536
+        hash = (hash + KEY_PAIRS[self.key_id][side]) % 65536
 
         return int(hash)
 
     def state_inc(self, inc=1) -> None:
         self.state = State(self.state.value + inc)
-        print(self.state)
+        print(" ∟ Changed state to", self.state.name)

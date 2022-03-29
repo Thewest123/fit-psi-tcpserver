@@ -21,7 +21,7 @@ for file in $FILES; do
     echo "# =============[ Part ]==============" >> $OUTPUT_FILE
     echo "# Name: ${file}" >> $OUTPUT_FILE
     echo "# Part: $i / $FILE_COUNT " >> $OUTPUT_FILE
-    printf "\n\n" >> $OUTPUT_FILE
+    printf "\n" >> $OUTPUT_FILE
     cat $file >> $OUTPUT_FILE
     printf "\n" >> $OUTPUT_FILE
     echo "# ==============[ end ]==============" >> $OUTPUT_FILE

@@ -10,6 +10,13 @@ class State(Enum):
     AUTHENTICATED = 3
 
 
+class Direction(Enum):
+    NORTH = 0,
+    SOUTH = 1,
+    EAST = 2,
+    WEST = 3
+
+
 class Robot:
 
     def __init__(self, conn: socket) -> None:
@@ -22,11 +29,24 @@ class Robot:
 
         self.prev_x: int = None
         self.prev_y: int = None
+        self.direction: Direction = None
 
     def send_message(self, msg: str) -> None:
         out: str = msg + SUFFIX
         print(" ∟ Sent:", out)
         self.conn.sendall(bytes(out, encoding="utf-8"))
+
+    def get_direction(self, x: int, y: int) -> Direction:
+        if (self.prev_x - x > 0):
+            return Direction.WEST
+        elif (self.prev_x - x < 0):
+            return Direction.EAST
+        elif (self.prev_y - y > 0):
+            return Direction.SOUTH
+        elif (self.prev_y - y < 0):
+            return Direction.NORTH
+        else:
+            print("[ERROR] Direction Error")
 
     def process_message(self, msg: str) -> bool:
 
@@ -85,16 +105,75 @@ class Robot:
                 y: int = int(msg.split(" ")[2])
                 print(f" ∟ Position: ({x},{y})")
 
-                # Initial set of previous position
-                if not self.prev_x:
-                    prev_x = x
+                # Get direction after first 2 messages
+                if (self.direction is None and self.prev_x is not None and self.prev_y is not None):
+                    self.direction = self.get_direction(x, y)
+                    print(" ∟ Got direction: ", self.direction)
 
-                if not self.prev_y:
-                    prev_x = y
+                # Initial set of previous position
+                if (not self.prev_x):
+                    self.prev_x = x
+                    print(" ∟ Set prev_x: ", self.prev_x)
+
+                if (not self.prev_y):
+                    self.prev_y = y
+                    print(" ∟ Set prev_y: ", self.prev_y)
+
+                # # Change directions if previous coors are same (we're stuck behind an obstacle)
+                # if (self.prev_x == x and self.prev_y == y):
+
+                #     # Top-right quadrant
+                #     if (x > 0 and y > 0):
+                #         if (self.direction == Direction.)
+                #         self.send_message(SERVER_TURN_RIGHT)
 
                 if (x == 0 and y == 0):
                     self.send_message(SERVER_PICK_UP)
                     return True
+
+                # Top right quadrant
+                if (x > 0 and y > 0 and self.direction == Direction.EAST):
+                    self.direction = Direction.SOUTH
+                    print(" ∟ Set direction: ", self.direction)
+                    self.send_message(SERVER_TURN_RIGHT)
+
+                if (x > 0 and y > 0 and self.direction == Direction.NORTH):
+                    self.direction = Direction.WEST
+                    print(" ∟ Set direction: ", self.direction)
+                    self.send_message(SERVER_TURN_LEFT)
+
+                # Top left quadrant
+                if (x < 0 and y > 0 and self.direction == Direction.WEST):
+                    self.direction = Direction.SOUTH
+                    print(" ∟ Set direction: ", self.direction)
+                    self.send_message(SERVER_TURN_LEFT)
+
+                if (x < 0 and y > 0 and self.direction == Direction.NORTH):
+                    self.direction = Direction.EAST
+                    print(" ∟ Set direction: ", self.direction)
+                    self.send_message(SERVER_TURN_RIGHT)
+
+                # Bottom right quadrant
+                if (x > 0 and y < 0 and self.direction == Direction.EAST):
+                    self.direction = Direction.NORTH
+                    print(" ∟ Set direction: ", self.direction)
+                    self.send_message(SERVER_TURN_LEFT)
+
+                if (x > 0 and y < 0 and self.direction == Direction.SOUTH):
+                    self.direction = Direction.WEST
+                    print(" ∟ Set direction: ", self.direction)
+                    self.send_message(SERVER_TURN_RIGHT)
+
+                # Bottom left quadrant
+                if (x < 0 and y < 0 and self.direction == Direction.WEST):
+                    self.direction = Direction.NORTH
+                    print(" ∟ Set direction: ", self.direction)
+                    self.send_message(SERVER_TURN_RIGHT)
+
+                if (x < 0 and y < 0 and self.direction == Direction.SOUTH):
+                    self.direction = Direction.EAST
+                    print(" ∟ Set direction: ", self.direction)
+                    self.send_message(SERVER_TURN_LEFT)
 
                 self.send_message(SERVER_MOVE)
                 return True

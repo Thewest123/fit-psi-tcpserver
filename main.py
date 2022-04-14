@@ -6,6 +6,7 @@ import sys
 import getopt
 import re
 from typing import Tuple
+from config import SERVER_TIMEOUT
 
 from robot import Robot
 
@@ -120,7 +121,7 @@ def main():
             conn, addr = sock.accept()
             print(f"[INFO] Recieved a connection from {addr}")
 
-            conn.settimeout(1)
+            conn.settimeout(SERVER_TIMEOUT)
 
             thread = threading.Thread(
                 target=handle_client, args=(sock, conn, addr, clientCount))

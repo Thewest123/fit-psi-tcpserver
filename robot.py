@@ -1,6 +1,8 @@
 from enum import Enum
 import socket
 import threading
+import re
+
 from config import *
 
 
@@ -10,6 +12,7 @@ class State(Enum):
     UNAUTH_CONFIRM = 2
     AUTHENTICATED = 3
     WAIT_FOR_TURN = 4
+    RECHARGING = 5
 
 
 class Direction(Enum):
@@ -25,6 +28,7 @@ class Robot:
     def __init__(self, conn: socket, clientId: int) -> None:
         self.conn: socket = conn
         self.state: State = State.UNAUTH
+        self.after_recharge_state: State = None
 
         self.name: str = None
         self.key_id: int = None
@@ -65,8 +69,29 @@ class Robot:
 
     def process_message(self, msg: str) -> bool:
 
+        if (msg.startswith("RECHARGING")):
+            self.after_recharge_state = self.state
+            self.state = State.RECHARGING
+            self.conn.settimeout(SERVER_TIMEOUT_RECHARGING)
+            print(f" ∟ [{self.id}] Recharging started")
+            return True
+
+        if (self.state == State.RECHARGING):
+            if (msg.startswith("FULL POWER")):
+                self.state = self.after_recharge_state
+                self.conn.settimeout(SERVER_TIMEOUT)
+                print(f" ∟ [{self.id}] Full power")
+                return True
+            else:
+                self.send_message(SERVER_LOGIC_ERROR)
+                return False
         # Unauthorized (CLIENT_USERNAME )
         if (self.state == State.UNAUTH):
+
+            if (len(msg) > CLIENT_USERNAME_LENGTH):
+                print(len(msg))
+                self.send_message(SERVER_SYNTAX_ERROR)
+                return False
 
             self.name = msg
 
@@ -78,7 +103,19 @@ class Robot:
         # Unauthorized (CLIET_KEY_ID)
         if (self.state == State.UNAUTH_ID):
 
-            self.key_id = int(msg)
+            if (' ' in msg):
+                self.send_message(SERVER_SYNTAX_ERROR)
+                return False
+
+            if (len(msg) > 5):
+                self.send_message(SERVER_SYNTAX_ERROR)
+                return False
+
+            try:
+                self.key_id = int(msg)
+            except:
+                self.send_message(SERVER_SYNTAX_ERROR)
+                return False
 
             try:
                 hash = self.create_hash(0)
@@ -95,7 +132,21 @@ class Robot:
         # Unauthorized (CLIENT_CONFIRMATION)
         if (self.state == State.UNAUTH_CONFIRM):
 
-            confirm_code: int = int(msg)
+            if (' ' in msg):
+                self.send_message(SERVER_SYNTAX_ERROR)
+                return False
+
+            if (len(msg) > 5):
+                self.send_message(SERVER_SYNTAX_ERROR)
+                return False
+
+            try:
+                confirm_code: int = int(msg)
+            except:
+                self.send_message(SERVER_SYNTAX_ERROR)
+                return False
+
+            #confirm_code: int = int(msg)
             try:
                 hash = self.create_hash(1)
             except Exception as e:
@@ -116,16 +167,20 @@ class Robot:
 
         if (self.state == State.WAIT_FOR_TURN):
             if (msg.startswith("OK")):
-                x: int = int(msg.split(" ")[1])
-                y: int = int(msg.split(" ")[2])
+
+                if (not re.match(r"^OK -?\d+ -?\d+$", msg)):
+                    self.send_message(SERVER_SYNTAX_ERROR)
+                    return False
+
+                try:
+                    x: int = int(msg.split(" ")[1])
+                    y: int = int(msg.split(" ")[2])
+                except:
+                    self.send_message(SERVER_SYNTAX_ERROR)
+                    return False
+
                 print(f" ∟ [{self.id}] Turn OK")
 
-                # if (x == 0 and y == 0):
-                #     self.send_message(SERVER_PICK_UP)
-                #     return True
-
-                # self.prev_x = x
-                # self.prev_y = y
                 self.state = State.AUTHENTICATED
                 self.send_message(SERVER_MOVE)
                 return True
@@ -137,8 +192,18 @@ class Robot:
 
         if (self.state == State.AUTHENTICATED):
             if (msg.startswith("OK")):
-                x: int = int(msg.split(" ")[1])
-                y: int = int(msg.split(" ")[2])
+
+                if (not re.match(r"^OK -?\d+ -?\d+$", msg)):
+                    self.send_message(SERVER_SYNTAX_ERROR)
+                    return False
+
+                try:
+                    x: int = int(msg.split(" ")[1])
+                    y: int = int(msg.split(" ")[2])
+                except:
+                    self.send_message(SERVER_SYNTAX_ERROR)
+                    return False
+
                 print(f" ∟ [{self.id}] Position: ({x},{y})")
 
                 if (x == 0 and y == 0):
@@ -317,8 +382,6 @@ class Robot:
                                 self.set_direction(Direction.EAST)
                                 self.send_message(SERVER_TURN_LEFT)
                                 return True
-
-                    # return True
 
                 self.set_prevs(x, y)
                 self.send_message(SERVER_MOVE)

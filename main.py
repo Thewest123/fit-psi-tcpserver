@@ -34,9 +34,9 @@ def read_message(conn: socket) -> list:
     return output
 
 
-def handle_client(sock: socket, conn: socket, addr) -> None:
+def handle_client(sock: socket, conn: socket, addr, clientId: int) -> None:
 
-    robot = Robot(conn)
+    robot = Robot(conn, clientId)
 
     while True:
 
@@ -52,7 +52,7 @@ def handle_client(sock: socket, conn: socket, addr) -> None:
 
         isError = False
         for msg in output:
-            print(f" ∟ Recv: {msg}")
+            print(f" ∟ [{robot.id}] Recv: {msg}")
             if not robot.process_message(msg):
                 isError = True
                 break
@@ -111,6 +111,7 @@ def main():
 
     print(f"[INFO] Listening on {sock.getsockname()}")
 
+    clientCount = 0
     try:
         # Wait for connections
         while True:
@@ -122,8 +123,10 @@ def main():
             conn.settimeout(1)
 
             thread = threading.Thread(
-                target=handle_client, args=(sock, conn, addr))
+                target=handle_client, args=(sock, conn, addr, clientCount))
             thread.start()
+
+            clientCount += 1
 
     except KeyboardInterrupt:
         sock.close()

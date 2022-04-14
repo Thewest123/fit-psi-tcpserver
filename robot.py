@@ -85,6 +85,7 @@ class Robot:
             else:
                 self.send_message(SERVER_LOGIC_ERROR)
                 return False
+
         # Unauthorized (CLIENT_USERNAME )
         if (self.state == State.UNAUTH):
 
@@ -146,7 +147,6 @@ class Robot:
                 self.send_message(SERVER_SYNTAX_ERROR)
                 return False
 
-            #confirm_code: int = int(msg)
             try:
                 hash = self.create_hash(1)
             except Exception as e:
@@ -163,7 +163,6 @@ class Robot:
             self.state_inc()
             self.send_message(SERVER_MOVE)
             return True
-            # No return because we want to continue to the AUTHENTICATED if statement
 
         if (self.state == State.WAIT_FOR_TURN):
             if (msg.startswith("OK")):

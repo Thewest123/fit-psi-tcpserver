@@ -4,17 +4,19 @@ import socket
 import threading
 import sys
 import getopt
+import re
 from typing import Tuple
 
 from robot import Robot
 
 
-def read_message(conn: socket) -> str:
+def read_message(conn: socket) -> list:
 
     buffer = b''
-    while b'\a\b' not in buffer:
+    output = []
+    while (b'\a\b' not in buffer) or (buffer[-2:] != b'\a\b'):
 
-        data = conn.recv(64)
+        data = conn.recv(1000)
 
         if not data:  # socket closed
             return None
@@ -22,7 +24,14 @@ def read_message(conn: socket) -> str:
         buffer += data
 
     line, sep, buffer = buffer.partition(b'\a\b')
-    return line.decode()
+    output.append(line.decode())
+
+    # While buffer is not empty
+    while buffer:
+        line, sep, buffer = buffer.partition(b'\a\b')
+        output.append(line.decode())
+
+    return output
 
 
 def handle_client(sock: socket, conn: socket, addr) -> None:
@@ -32,17 +41,23 @@ def handle_client(sock: socket, conn: socket, addr) -> None:
     while True:
 
         try:
-            msg = read_message(conn)
+            output = read_message(conn)
         except:
             print(f"[WARN] Connection {addr} closed with ERROR")
             conn.close()
             return
 
-        if msg is None:
+        if output is None:
             break
 
-        print(f" ∟ Recv: {msg}")
-        if not robot.process_message(msg):
+        isError = False
+        for msg in output:
+            print(f" ∟ Recv: {msg}")
+            if not robot.process_message(msg):
+                isError = True
+                break
+
+        if (isError):
             break
 
     print(f"[INFO] Connection {addr} closed with success")

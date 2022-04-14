@@ -31,7 +31,13 @@ def handle_client(sock: socket, conn: socket, addr) -> None:
 
     while True:
 
-        msg = read_message(conn)
+        try:
+            msg = read_message(conn)
+        except:
+            print(f"[WARN] Connection {addr} closed with ERROR")
+            conn.close()
+            return
+
         if msg is None:
             break
 
@@ -39,8 +45,9 @@ def handle_client(sock: socket, conn: socket, addr) -> None:
         if not robot.process_message(msg):
             break
 
-    print(f"[INFO] Connection {addr} closed")
+    print(f"[INFO] Connection {addr} closed with success")
     conn.close()
+    return
 
 
 def parse_args(argv) -> Tuple[str, int]:

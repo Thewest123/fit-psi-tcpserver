@@ -8,6 +8,7 @@ class State(Enum):
     UNAUTH_ID = 1
     UNAUTH_CONFIRM = 2
     AUTHENTICATED = 3
+    WAIT_FOR_TURN = 4
 
 
 class Direction(Enum):
@@ -47,6 +48,11 @@ class Robot:
             return Direction.NORTH
         else:
             print("[ERROR] Direction Error")
+
+    def set_direction(self, direction: Direction) -> None:
+        self.direction = direction
+        print(" ∟ Set direction: ", self.direction)
+        self.state = State.WAIT_FOR_TURN
 
     def process_message(self, msg: str) -> bool:
 
@@ -99,6 +105,17 @@ class Robot:
             return True
             # No return because we want to continue to the AUTHENTICATED if statement
 
+        if (self.state == State.WAIT_FOR_TURN):
+            if (msg.startswith("OK")):
+                print(f" ∟ Turn OK")
+                self.state = State.AUTHENTICATED
+                self.send_message(SERVER_MOVE)
+                return True
+
+            self.send_message(SERVER_LOGOUT)
+            print(f" ∟ Turn FAIL")
+            return False
+
         if (self.state == State.AUTHENTICATED):
             if (msg.startswith("OK")):
                 x: int = int(msg.split(" ")[1])
@@ -133,47 +150,100 @@ class Robot:
 
                 # Top right quadrant
                 if (x > 0 and y > 0 and self.direction == Direction.EAST):
-                    self.direction = Direction.SOUTH
-                    print(" ∟ Set direction: ", self.direction)
+                    self.set_direction(Direction.SOUTH)
                     self.send_message(SERVER_TURN_RIGHT)
+                    return True
 
                 if (x > 0 and y > 0 and self.direction == Direction.NORTH):
-                    self.direction = Direction.WEST
-                    print(" ∟ Set direction: ", self.direction)
+                    self.set_direction(Direction.WEST)
                     self.send_message(SERVER_TURN_LEFT)
+                    return True
 
                 # Top left quadrant
                 if (x < 0 and y > 0 and self.direction == Direction.WEST):
-                    self.direction = Direction.SOUTH
-                    print(" ∟ Set direction: ", self.direction)
+                    self.set_direction(Direction.SOUTH)
                     self.send_message(SERVER_TURN_LEFT)
+                    return True
 
                 if (x < 0 and y > 0 and self.direction == Direction.NORTH):
-                    self.direction = Direction.EAST
-                    print(" ∟ Set direction: ", self.direction)
+                    self.set_direction(Direction.EAST)
                     self.send_message(SERVER_TURN_RIGHT)
+                    return True
 
                 # Bottom right quadrant
                 if (x > 0 and y < 0 and self.direction == Direction.EAST):
-                    self.direction = Direction.NORTH
-                    print(" ∟ Set direction: ", self.direction)
+                    self.set_direction(Direction.NORTH)
                     self.send_message(SERVER_TURN_LEFT)
+                    return True
 
                 if (x > 0 and y < 0 and self.direction == Direction.SOUTH):
-                    self.direction = Direction.WEST
-                    print(" ∟ Set direction: ", self.direction)
+                    self.set_direction(Direction.WEST)
                     self.send_message(SERVER_TURN_RIGHT)
+                    return True
 
                 # Bottom left quadrant
                 if (x < 0 and y < 0 and self.direction == Direction.WEST):
-                    self.direction = Direction.NORTH
-                    print(" ∟ Set direction: ", self.direction)
+                    self.set_direction(Direction.NORTH)
                     self.send_message(SERVER_TURN_RIGHT)
+                    return True
 
                 if (x < 0 and y < 0 and self.direction == Direction.SOUTH):
-                    self.direction = Direction.EAST
-                    print(" ∟ Set direction: ", self.direction)
+                    self.set_direction(Direction.EAST)
                     self.send_message(SERVER_TURN_LEFT)
+                    return True
+
+                if (x == 0 or y == 0):
+                    if (x == 0):
+                        if (y > 0):
+                            if (self.direction == Direction.NORTH):
+                                self.set_direction(Direction.WEST)
+                                self.send_message(SERVER_TURN_LEFT)
+                            if (self.direction == Direction.WEST):
+                                self.set_direction(Direction.SOUTH)
+                                self.send_message(SERVER_TURN_LEFT)
+                            if (self.direction == Direction.EAST):
+                                self.set_direction(Direction.SOUTH)
+                                self.send_message(SERVER_TURN_RIGHT)
+                            if (self.direction == Direction.SOUTH):
+                                self.send_message(SERVER_MOVE)
+                        if (y < 0):
+                            if (self.direction == Direction.NORTH):
+                                self.send_message(SERVER_MOVE)
+                            if (self.direction == Direction.WEST):
+                                self.set_direction(Direction.NORTH)
+                                self.send_message(SERVER_TURN_RIGHT)
+                            if (self.direction == Direction.EAST):
+                                self.set_direction(Direction.NORTH)
+                                self.send_message(SERVER_TURN_LEFT)
+                            if (self.direction == Direction.SOUTH):
+                                self.set_direction(Direction.WEST)
+                                self.send_message(SERVER_TURN_LEFT)
+                    if (y == 0):
+                        if (x > 0):
+                            if (self.direction == Direction.NORTH):
+                                self.set_direction(Direction.WEST)
+                                self.send_message(SERVER_TURN_LEFT)
+                            if (self.direction == Direction.WEST):
+                                self.send_message(SERVER_MOVE)
+                            if (self.direction == Direction.EAST):
+                                self.set_direction(Direction.NORTH)
+                                self.send_message(SERVER_TURN_LEFT)
+                            if (self.direction == Direction.SOUTH):
+                                self.set_direction(Direction.WEST)
+                                self.send_message(SERVER_TURN_RIGHT)
+                        if (x < 0):
+                            if (self.direction == Direction.NORTH):
+                                self.set_direction(Direction.EAST)
+                                self.send_message(SERVER_TURN_RIGHT)
+                            if (self.direction == Direction.WEST):
+                                self.set_direction(Direction.NORTH)
+                                self.send_message(SERVER_TURN_RIGHT)
+                            if (self.direction == Direction.EAST):
+                                self.send_message(SERVER_MOVE)
+                            if (self.direction == Direction.SOUTH):
+                                self.set_direction(Direction.EAST)
+                                self.send_message(SERVER_TURN_LEFT)
+                    return True
 
                 self.send_message(SERVER_MOVE)
                 return True

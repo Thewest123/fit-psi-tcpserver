@@ -4,3 +4,7 @@ The task was to create a TCP server according to [SPECIFICATION.md ](SPECIFICATI
 
 This solution received 18 out of 20 points.
 Anything 10+ would satisfy the requirements.
+
+# Usage
+1. Run server: `./main.py -a [IP_ADDR] -p [PORT]`
+2. Run client: `./tester/psi-tester-2022-v6_x64 <PORT> <IP_ADDR>`
